@@ -332,6 +332,8 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 .label-link{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:var(--fringe);text-decoration:none;padding:2px 7px;border:1px solid #BEE0D0;border-radius:4px;margin-top:3px;transition:all .12s;background:#F0F7F4;white-space:nowrap;cursor:pointer;}
 .label-link:hover{background:var(--fringe);color:white;border-color:var(--fringe);}
+/* FRAC CODE BADGE */
+.frac-badge{background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;font-family:'DM Mono',monospace;white-space:nowrap;cursor:help;display:inline-block;}
 
 
 /* TOAST */
@@ -395,10 +397,7 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
 
       <!-- ── GROUP 2: TRACKING ── -->
       <div class="nav-group">
-        <div class="tab" data-tab="apptrack" title="Full application history log">
-          <span class="tab-icon">📊</span>
-          <span class="tab-lbl">App Tracker</span>
-        </div>
+
         <div class="tab" data-tab="gdd" title="Growing degree day accumulation">
           <span class="tab-icon">🌡</span>
           <span class="tab-lbl">GDD</span>
@@ -630,8 +629,30 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
     <!-- RIGHT COLUMN -->
     <div>
       <div class="panel">
-        <div class="ph"><span style="font-size:16px">📁</span><span class="ph-title">Spray History</span><span class="ph-sub" id="histCnt">0 records</span></div>
-        <div style="padding:10px;max-height:82vh;overflow-y:auto;" id="histList"></div>
+        <div class="ph" style="flex-wrap:wrap;gap:6px;">
+          <span style="font-size:16px">📁</span>
+          <span class="ph-title">Spray History</span>
+          <span class="ph-sub" id="histCnt">0 records</span>
+          <button onclick="syncSharedHistory()" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">🔄 Sync Team</button>
+        </div>
+        <div style="padding:8px 10px 4px;display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--border);">
+          <select id="hist_filter_type" onchange="renderHistory()" style="border:1.5px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;font-family:'Inter',sans-serif;outline:none;flex:1;min-width:110px;">
+            <option value="">All Types</option>
+            <option value="fungicide">🍄 Fungicide</option>
+            <option value="pgr">📏 Growth Reg.</option>
+            <option value="herbicide">🌿 Herbicide</option>
+            <option value="fertilizer">🌱 Fertility</option>
+            <option value="wetting">💧 Wetting</option>
+          </select>
+          <select id="hist_filter_apptype" onchange="renderHistory()" style="border:1.5px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;font-family:'Inter',sans-serif;outline:none;flex:1;min-width:100px;">
+            <option value="">All Methods</option>
+            <option value="Foliar">🌿 Foliar</option>
+            <option value="Soil">🪱 Soil</option>
+          </select>
+          <input type="month" id="hist_filter_month" onchange="renderHistory()" style="border:1.5px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;font-family:'Inter',sans-serif;outline:none;flex:1;min-width:120px;">
+          <button onclick="['hist_filter_type','hist_filter_apptype','hist_filter_month'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderHistory();" style="background:transparent;border:1px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;cursor:pointer;color:var(--muted);font-family:'Inter',sans-serif;white-space:nowrap;">✕</button>
+        </div>
+        <div style="padding:10px;max-height:75vh;overflow-y:auto;" id="histList"></div>
       </div>
     </div>
   </div>
@@ -639,6 +660,8 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
 
 <!-- ══ GDD PAGE ══ -->
 <div class="page" id="pg-gdd">
+  <!-- PGR REAPPLICATION ALERT BANNER -->
+  <div id="pgr_alert_banner" style="margin-bottom:1rem;display:none;"></div>
   <!-- ALERT -->
   <div class="gdd-alert" id="gddAlert">⚠️ <span id="gddAlertText"></span></div>
 
@@ -981,6 +1004,22 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
 
 <!-- ══ WEATHER INTELLIGENCE PAGE ══ -->
 <div class="page" id="pg-weather">
+  <!-- CIMIS SETUP BANNER -->
+  <div id="cimis_banner" style="margin-bottom:1rem;background:#EDF7F2;border:1.5px solid #BEE0D0;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:20px;flex-shrink:0;">🌿</span>
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:12.5px;font-weight:700;color:var(--fairway);">CIMIS Weather Integration — La Jolla Station</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">Connect to CIMIS (California Irrigation Management Information System) for precise on-site ETo, soil temp, and humidity data directly from <strong>CIMIS Station 173 — Torrey Pines Golf Course</strong>.</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <input id="cimis_key_input" type="text" placeholder="CIMIS AppKey" value=""
+        style="border:1.5px solid #BEE0D0;border-radius:6px;padding:6px 10px;font-size:12px;font-family:'DM Mono',monospace;width:200px;outline:none;">
+      <button onclick="saveCIMISKey()" style="background:var(--fairway);color:white;border:none;border-radius:6px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">Connect CIMIS</button>
+      <a href="https://cimis.water.ca.gov/Auth/Register.aspx" target="_blank" style="font-size:11px;color:var(--fringe);text-decoration:none;white-space:nowrap;">Get free AppKey →</a>
+    </div>
+    <div id="cimis_status" style="font-size:11px;font-weight:600;flex-basis:100%;display:none;"></div>
+  </div>
+
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:1.25rem;" id="wx_stat_grid"></div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
@@ -1003,7 +1042,7 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
     <div class="chart-head">
       <div>
         <div class="chart-title">7-Day Temperature, ET &amp; Soil Temp — Torrey Pines</div>
-        <div class="chart-sub">La Jolla CA · 32.90°N 117.25°W · Open-Meteo live data</div>
+        <div class="chart-sub" id="wx_data_source">La Jolla CA · 32.90°N 117.25°W · Open-Meteo live data</div>
       </div>
       <div class="chart-controls">
         <button class="ref-btn" id="wxRefBtn" onclick="fetchWeatherIntelligence()">↻ Refresh</button>
@@ -1450,39 +1489,39 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
 // ══════════════════════════════════════════════════════════════
 const INV=[
   // FUNGICIDES
-  {id:'f01',cat:'fungicides',name:'3336-F',mfr:'Nufarm',pkgSize:2.5,unit:'G',qty:4,greens:false,disc:false,note:''},
-  {id:'f02',cat:'fungicides',name:'26019',mfr:'Bayer',pkgSize:2.5,unit:'G',qty:0,greens:true,disc:false,note:''},
-  {id:'f03',cat:'fungicides',name:'Appear II',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:14,greens:false,disc:false,note:''},
-  {id:'f04',cat:'fungicides',name:'Aramax',mfr:'BASF',pkgSize:2.5,unit:'G',qty:1.5,greens:false,disc:false,note:'Replacing Trinity'},
-  {id:'f05',cat:'fungicides',name:'Ascernity',mfr:'Syngenta',pkgSize:10,unit:'G',qty:2.1,greens:true,disc:false,note:''},
+  {id:'f01',cat:'fungicides',name:'3336-F',frac:'FRAC 1',moa:'MBC — Microtubule assembly',mfr:'Nufarm',pkgSize:2.5,unit:'G',qty:4,greens:false,disc:false,note:''},
+  {id:'f02',cat:'fungicides',name:'26019',frac:'FRAC 2',moa:'Dicarboximide — osmotic signal',mfr:'Bayer',pkgSize:2.5,unit:'G',qty:0,greens:true,disc:false,note:''},
+  {id:'f03',cat:'fungicides',name:'Appear II',frac:'FRAC 33',moa:'Phosphonate — host defence',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:14,greens:false,disc:false,note:''},
+  {id:'f04',cat:'fungicides',name:'Aramax',frac:'FRAC 7+3',moa:'SDHI + DMI',mfr:'BASF',pkgSize:2.5,unit:'G',qty:1.5,greens:false,disc:false,note:'Replacing Trinity'},
+  {id:'f05',cat:'fungicides',name:'Ascernity',frac:'FRAC 3+7',moa:'DMI + SDHI',mfr:'Syngenta',pkgSize:10,unit:'G',qty:2.1,greens:true,disc:false,note:''},
   {id:'f06',cat:'fungicides',name:'Banner Maxx II',mfr:'Syngenta',pkgSize:10,unit:'G',qty:2.2,greens:true,disc:false,note:''},
-  {id:'f07',cat:'fungicides',name:'Banol',mfr:'Bayer',pkgSize:2.5,unit:'G',qty:1,greens:false,disc:false,note:''},
-  {id:'f08',cat:'fungicides',name:'Briskway',mfr:'Syngenta',pkgSize:1,unit:'G',qty:8,greens:true,disc:false,note:''},
-  {id:'f09',cat:'fungicides',name:'Daconil Action',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:22,greens:true,disc:false,note:''},
-  {id:'f10',cat:'fungicides',name:'Fame SC',mfr:'FMC',pkgSize:2.5,unit:'G',qty:1.5,greens:true,disc:false,note:''},
-  {id:'f11',cat:'fungicides',name:'Headway',mfr:'Syngenta',pkgSize:10,unit:'G',qty:0,greens:false,disc:false,note:''},
-  {id:'f12',cat:'fungicides',name:'Heritage Action',mfr:'Syngenta',pkgSize:1,unit:'Lb',qty:12.5,greens:true,disc:false,note:''},
-  {id:'f13',cat:'fungicides',name:'Heritage TL',mfr:'Syngenta',pkgSize:1,unit:'G',qty:1,greens:false,disc:true,note:'Discontinuing'},
-  {id:'f14',cat:'fungicides',name:'Indemnify',mfr:'Envu',pkgSize:17.1,unit:'oz',qty:3,greens:false,disc:false,note:''},
-  {id:'f15',cat:'fungicides',name:'Insignia SC',mfr:'BASF',pkgSize:2.5,unit:'G',qty:6,greens:true,disc:false,note:''},
-  {id:'f16',cat:'fungicides',name:'Lexicon',mfr:'BASF',pkgSize:21,unit:'Oz',qty:16,greens:true,disc:false,note:''},
-  {id:'f17',cat:'fungicides',name:'Maxtima',mfr:'BASF',pkgSize:2.5,unit:'G',qty:6,greens:true,disc:false,note:''},
+  {id:'f07',cat:'fungicides',name:'Banol',frac:'FRAC 28',moa:'Carbamate — Oomycete lipid',mfr:'Bayer',pkgSize:2.5,unit:'G',qty:1,greens:false,disc:false,note:''},
+  {id:'f08',cat:'fungicides',name:'Briskway',frac:'FRAC 11+3',moa:'QoI + DMI',mfr:'Syngenta',pkgSize:1,unit:'G',qty:8,greens:true,disc:false,note:''},
+  {id:'f09',cat:'fungicides',name:'Daconil Action',frac:'FRAC M5+P',moa:'Multi-site + SAR inducer',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:22,greens:true,disc:false,note:''},
+  {id:'f10',cat:'fungicides',name:'Fame SC',frac:'FRAC 11',moa:'QoI — Respiration (strobilurin)',mfr:'FMC',pkgSize:2.5,unit:'G',qty:1.5,greens:true,disc:false,note:''},
+  {id:'f11',cat:'fungicides',name:'Headway',frac:'FRAC 11+3',moa:'QoI + DMI',mfr:'Syngenta',pkgSize:10,unit:'G',qty:0,greens:false,disc:false,note:''},
+  {id:'f12',cat:'fungicides',name:'Heritage Action',frac:'FRAC 11+P',moa:'QoI + SAR inducer',mfr:'Syngenta',pkgSize:1,unit:'Lb',qty:12.5,greens:true,disc:false,note:''},
+  {id:'f13',cat:'fungicides',name:'Heritage TL',frac:'FRAC 11',moa:'QoI — Respiration (strobilurin)',mfr:'Syngenta',pkgSize:1,unit:'G',qty:1,greens:false,disc:true,note:'Discontinuing'},
+  {id:'f14',cat:'fungicides',name:'Indemnify',frac:'FRAC 23',moa:'Ketoenol — Lipid biosynthesis',mfr:'Envu',pkgSize:17.1,unit:'oz',qty:3,greens:false,disc:false,note:''},
+  {id:'f15',cat:'fungicides',name:'Insignia SC',frac:'FRAC 11',moa:'QoI — Respiration (strobilurin)',mfr:'BASF',pkgSize:2.5,unit:'G',qty:6,greens:true,disc:false,note:''},
+  {id:'f16',cat:'fungicides',name:'Lexicon',frac:'FRAC 11+7',moa:'QoI + SDHI',mfr:'BASF',pkgSize:21,unit:'Oz',qty:16,greens:true,disc:false,note:''},
+  {id:'f17',cat:'fungicides',name:'Maxtima',frac:'FRAC 3',moa:'DMI — Sterol biosynthesis (triazole)',mfr:'BASF',pkgSize:2.5,unit:'G',qty:6,greens:true,disc:false,note:''},
   {id:'f18',cat:'fungicides',name:'Maxtima (small)',mfr:'BASF',pkgSize:26,unit:'Oz',qty:6,greens:true,disc:true,note:'Discontinuing'},
-  {id:'f19',cat:'fungicides',name:'Medallion SC',mfr:'Syngenta',pkgSize:1,unit:'G',qty:8,greens:true,disc:false,note:''},
-  {id:'f20',cat:'fungicides',name:'Medallion WDG',mfr:'Syngenta',pkgSize:8,unit:'Oz',qty:2,greens:false,disc:false,note:''},
-  {id:'f21',cat:'fungicides',name:'Mirage',mfr:'Envu',pkgSize:2.5,unit:'G',qty:6,greens:false,disc:false,note:''},
-  {id:'f22',cat:'fungicides',name:'Navicon',mfr:'BASF',pkgSize:2.5,unit:'G',qty:1.5,greens:true,disc:false,note:''},
-  {id:'f23',cat:'fungicides',name:'Posterity XT',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:6,greens:false,disc:false,note:''},
-  {id:'f24',cat:'fungicides',name:'Prostar 70WG',mfr:'Bayer',pkgSize:3,unit:'Lb',qty:2,greens:false,disc:true,note:'Discontinuing'},
-  {id:'f25',cat:'fungicides',name:'Renown',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:1,greens:false,disc:false,note:''},
-  {id:'f26',cat:'fungicides',name:'Secure Action',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:3.5,greens:true,disc:false,note:'Greens use'},
-  {id:'f27',cat:'fungicides',name:'Segway',mfr:'FMC',pkgSize:32,unit:'Oz',qty:14,greens:true,disc:false,note:''},
-  {id:'f28',cat:'fungicides',name:'Subdue Maxx',mfr:'Syngenta',pkgSize:1,unit:'G',qty:2,greens:true,disc:false,note:''},
-  {id:'f29',cat:'fungicides',name:'Tebuconazole',mfr:'Albaugh',pkgSize:1,unit:'G',qty:1,greens:false,disc:false,note:''},
-  {id:'f30',cat:'fungicides',name:'Velista',mfr:'Syngenta',pkgSize:22,unit:'Oz',qty:30,greens:true,disc:false,note:''},
-  {id:'f31',cat:'fungicides',name:'Xzemplar',mfr:'BASF',pkgSize:114,unit:'Oz',qty:19,greens:true,disc:false,note:''},
+  {id:'f19',cat:'fungicides',name:'Medallion SC',frac:'FRAC 12',moa:'Phenylpyrrole — MAP/Histidine kinase',mfr:'Syngenta',pkgSize:1,unit:'G',qty:8,greens:true,disc:false,note:''},
+  {id:'f20',cat:'fungicides',name:'Medallion WDG',frac:'FRAC 12',moa:'Phenylpyrrole — MAP/Histidine kinase',mfr:'Syngenta',pkgSize:8,unit:'Oz',qty:2,greens:false,disc:false,note:''},
+  {id:'f21',cat:'fungicides',name:'Mirage',frac:'FRAC 3',moa:'DMI — Sterol biosynthesis (triazole)',mfr:'Envu',pkgSize:2.5,unit:'G',qty:6,greens:false,disc:false,note:''},
+  {id:'f22',cat:'fungicides',name:'Navicon',frac:'FRAC 3+11',moa:'DMI + QoI',mfr:'BASF',pkgSize:2.5,unit:'G',qty:1.5,greens:true,disc:false,note:''},
+  {id:'f23',cat:'fungicides',name:'Posterity XT',frac:'FRAC 7+3+11',moa:'SDHI + DMI + QoI',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:6,greens:false,disc:false,note:''},
+  {id:'f24',cat:'fungicides',name:'Prostar 70WG',frac:'FRAC 2',moa:'Dicarboximide — osmotic signal',mfr:'Bayer',pkgSize:3,unit:'Lb',qty:2,greens:false,disc:true,note:'Discontinuing'},
+  {id:'f25',cat:'fungicides',name:'Renown',frac:'FRAC 11+3',moa:'QoI + DMI',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:1,greens:false,disc:false,note:''},
+  {id:'f26',cat:'fungicides',name:'Secure Action',frac:'FRAC 14+P',moa:'Uncoupler + SAR inducer',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:3.5,greens:true,disc:false,note:'Greens use'},
+  {id:'f27',cat:'fungicides',name:'Segway',frac:'FRAC 21',moa:'QiI — Complex III Qi site (Oomycete)',mfr:'FMC',pkgSize:32,unit:'Oz',qty:14,greens:true,disc:false,note:''},
+  {id:'f28',cat:'fungicides',name:'Subdue Maxx',frac:'FRAC 4',moa:'Phenylamide — RNA polymerase I',mfr:'Syngenta',pkgSize:1,unit:'G',qty:2,greens:true,disc:false,note:''},
+  {id:'f29',cat:'fungicides',name:'Tebuconazole',frac:'FRAC 3',moa:'DMI — Sterol biosynthesis (triazole)',mfr:'Albaugh',pkgSize:1,unit:'G',qty:1,greens:false,disc:false,note:''},
+  {id:'f30',cat:'fungicides',name:'Velista',frac:'FRAC 7',moa:'SDHI — Succinate dehydrogenase',mfr:'Syngenta',pkgSize:22,unit:'Oz',qty:30,greens:true,disc:false,note:''},
+  {id:'f31',cat:'fungicides',name:'Xzemplar',frac:'FRAC 7',moa:'SDHI — Succinate dehydrogenase',mfr:'BASF',pkgSize:114,unit:'Oz',qty:19,greens:true,disc:false,note:''},
   {id:'f32',cat:'fungicides',name:'Secure',mfr:'Syngenta',pkgSize:2.5,unit:'G',qty:2,greens:false,disc:false,note:''},
-  {id:'f33',cat:'fungicides',name:'Posterity Forte',mfr:'Syngenta',pkgSize:1,unit:'G',qty:1,greens:false,disc:false,note:''},
+  {id:'f33',cat:'fungicides',name:'Posterity Forte',frac:'FRAC 7+3',moa:'SDHI + DMI',mfr:'Syngenta',pkgSize:1,unit:'G',qty:1,greens:false,disc:false,note:''},
   // HERBICIDES
   {id:'h01',cat:'herbicides',name:'Acelepryn',mfr:'',pkgSize:0.5,unit:'G',qty:9,greens:false,disc:false,note:''},
   {id:'h02',cat:'herbicides',name:'Arena',mfr:'',pkgSize:30,unit:'lb',qty:6,greens:false,disc:false,note:''},
@@ -1755,7 +1794,10 @@ function buildCard(item){
       <div>
         <div class="cname">${item.name}</div>
         <div class="cmfr">${item.mfr||'—'} &nbsp;·&nbsp; <span class="spill ${pillClass(l)}">${pillLbl(l)}</span></div>
-        <button class="label-link" onclick="openCDMSModal('${cdmsUrl(item.name)}','${item.name}')">📄 CDMS Label</button>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:3px;">
+          ${item.frac?`<span class="frac-badge" title="${item.moa||item.frac}">${item.frac}</span>`:''}
+          <button class="label-link" style="margin-top:0;" onclick="openCDMSModal('${cdmsUrl(item.name)}','${item.name}')">📄 CDMS Label</button>
+        </div>
       </div>
       <div class="ctags">${tags}</div>
     </div>
@@ -1787,7 +1829,7 @@ function renderList(items,pg){
   const w=document.createElement('div');
   w.style.cssText='background:white;border-radius:10px;overflow:hidden;border:1px solid var(--border);margin-top:1rem;';
   w.innerHTML=`<table class="ltable"><thead><tr><th>Product</th><th>Mfr</th><th>Category</th><th>Pkg</th><th>Qty</th><th>Total</th><th>Unit</th><th>Status</th><th>Notes</th></tr></thead><tbody>${items.map(i=>{
-    const l=sLevel(i);return`<tr><td><strong>${i.name}</strong>${i.disc?' <span class="tag tag-d" style="font-size:9px">Disc.</span>':''}${i.greens?' <span class="tag tag-g" style="font-size:9px">Grn</span>':''}<br><button class="label-link" onclick="openCDMSModal('${cdmsUrl(i.name)}','${i.name}')" style="margin-top:2px;">📄 CDMS Label</button></td><td style="color:var(--muted)">${i.mfr||'—'}</td><td style="color:var(--muted);font-size:11px">${CAT_LBL[i.cat]}</td><td style="font-family:'DM Mono',monospace">${i.pkgSize} ${i.unit}</td><td style="font-family:'DM Mono',monospace">${i.qty}</td><td style="font-family:'DM Mono',monospace"><strong>${total(i)}</strong></td><td style="color:var(--muted)">${i.unit}</td><td><span class="spill ${pillClass(l)}">${pillLbl(l)}</span></td><td style="color:var(--muted);font-size:11px">${i.note||''}</td></tr>`;
+    const l=sLevel(i);return`<tr><td><strong>${i.name}</strong>${i.disc?' <span class="tag tag-d" style="font-size:9px">Disc.</span>':''}${i.greens?' <span class="tag tag-g" style="font-size:9px">Grn</span>':''}${i.frac?' <span title="'+i.moa+'" style="background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;font-family:monospace;cursor:help;">'+i.frac+'</span>':''}<br><button class="label-link" onclick="openCDMSModal('${cdmsUrl(i.name)}','${i.name}')" style="margin-top:2px;">📄 CDMS Label</button></td><td style="color:var(--muted)">${i.mfr||'—'}</td><td style="color:var(--muted);font-size:11px">${CAT_LBL[i.cat]}</td><td style="font-family:'DM Mono',monospace">${i.pkgSize} ${i.unit}</td><td style="font-family:'DM Mono',monospace">${i.qty}</td><td style="font-family:'DM Mono',monospace"><strong>${total(i)}</strong></td><td style="color:var(--muted)">${i.unit}</td><td><span class="spill ${pillClass(l)}">${pillLbl(l)}</span></td><td style="color:var(--muted);font-size:11px">${i.note||''}</td></tr>`;
   }).join('')}</tbody></table>`;
   pg.appendChild(w);
 }
@@ -2316,6 +2358,47 @@ function renumberMix(tankId){
 function rmTank(id){const e=document.getElementById('tank_'+id);if(e)e.remove();updTankCnt();}
 function updTankCnt(){const n=document.querySelectorAll('.tank-row').length;document.getElementById('tankCnt').textContent=n+' tank'+(n!==1?'s':'');}
 
+// Convert an amount from one unit to another for inventory deduction
+function convertToInvUnit(amount, fromUnit, toUnit){
+  if(!amount||amount===0) return 0;
+  const from=(fromUnit||'').trim().toLowerCase();
+  const to=(toUnit||'').trim().toLowerCase();
+  if(from===to) return amount;
+
+  // Normalise to fluid oz first, then convert to target
+  // Liquid conversions (fl oz base)
+  const toFlOz={
+    'fl oz':1,'oz':1,'floz':1,        // fl oz variants
+    'g':128,'gal':128,'g (gal)':128,  // gallons → 128 fl oz
+    'qt':32,                           // quarts → 32 fl oz
+    'ml':0.033814,'l':33.814,
+  };
+  // Dry weight conversions (oz base)
+  const toOzDry={
+    'oz':1,'dry oz':1,
+    'lb':16,'lbs':16,'lb.':16,
+  };
+
+  const isLiquidFrom=from in toFlOz;
+  const isLiquidTo=to in toFlOz;
+  const isDryFrom=from in toOzDry;
+  const isDryTo=to in toOzDry;
+
+  if(isLiquidFrom&&isLiquidTo){
+    // Both liquid — convert via fl oz
+    const inFlOz=amount*(toFlOz[from]||1);
+    return inFlOz/(toFlOz[to]||1);
+  }
+  if(isDryFrom&&isDryTo){
+    // Both dry weight — convert via oz
+    const inOz=amount*(toOzDry[from]||1);
+    return inOz/(toOzDry[to]||1);
+  }
+  // Can't convert between incompatible unit types — return as-is and warn
+  console.warn(`Unit mismatch: ${fromUnit} → ${toUnit} for ${amount} — deducting as-is`);
+  return amount;
+}
+
 function collectTanks(){
   const tanks=[];
   document.querySelectorAll('.tank-row').forEach(tr=>{
@@ -2333,22 +2416,35 @@ function collectTanks(){
       const rid=row.id.replace('mixrow_','');
       const sel=row.querySelector('select');
       const rateEl=document.getElementById('mrate_'+rid);
+      const unitEl=document.getElementById('munit_'+rid);   // rate unit selected
       const ptRawEl=document.getElementById('mptank_raw_'+rid);
       const ptDisplayEl=document.getElementById('mptank_'+rid);
       if(sel?.value){
         const item=INV.find(i=>i.id===sel.value);
         const rate=parseFloat(rateEl?.value)||0;
+        const rateUnit=(unitEl?.value||item?.unit||'').trim();  // unit the rate was entered in
         const basis=rateBasisMap[rid]||'1k';
-        // Use raw (oz) value for math; fall back to re-calc if raw not set
+        // perTankRaw is in rateUnit
         const perTankRaw=parseFloat(ptRawEl?.value)||0;
         const expected=rate>0&&sqft>0?Math.round(rate*(sqft/1000)*1000)/1000:0;
-        const finalAmt=perTankRaw||expected;
-        // Formatted display string (e.g. "1 gal 12 oz") for history
+        const finalAmtInRateUnit=perTankRaw||expected;
+        // Convert to inventory unit for deduction
+        const invUnit=(item?.unit||rateUnit).trim();
+        const deductAmt=convertToInvUnit(finalAmtInRateUnit, rateUnit, invUnit);
+        // Formatted display string
         const displayStr=ptDisplayEl?.value||'';
-        if(item&&(rate>0||finalAmt>0))mix.push({
-          id:item.id,name:item.name,unit:item.unit,
-          rate,rateBasis:basis,sqft,perTank:finalAmt,perTankDisplay:displayStr,
-          amount:finalAmt  // amount deducted from inventory (raw unit)
+        if(item&&(rate>0||finalAmtInRateUnit>0))mix.push({
+          id:item.id,
+          name:item.name,
+          unit:invUnit,           // inventory unit
+          rateUnit:rateUnit,      // unit used for rate entry
+          rate,
+          rateBasis:basis,
+          sqft,
+          perTank:finalAmtInRateUnit,       // amount in rate unit (for display)
+          perTankInInvUnit:Math.round(deductAmt*10000)/10000, // amount in inv unit (for deduction)
+          perTankDisplay:displayStr,
+          amount:Math.round(deductAmt*10000)/10000  // what actually gets deducted
         });
       }
     });
@@ -2391,11 +2487,28 @@ function submitSpray(){
   tanks.forEach(tank=>{
     tank.mixOrder.forEach(p=>{
       const item=INV.find(i=>i.id===p.id);if(!item)return;
-      const deduct=p.perTank||p.amount||0;
+      // Use perTankInInvUnit (converted to inventory unit) for deduction
+      const deduct=parseFloat((p.perTankInInvUnit||p.amount||p.perTank||0).toFixed(4));
       if(deduct===0)return;
-      if(item.qty-deduct<0)warns.push(`${item.name}: need ${fn(deduct)} ${p.unit}, only ${fn(item.qty)} avail`);
-      item.qty=Math.max(0,parseFloat((item.qty-deduct).toFixed(3)));
-      usageLog.push({id:item.id,name:item.name,unit:item.unit,rate:p.rate,perTank:p.perTank,perTankDisplay:p.perTankDisplay,deducted:deduct,remaining:item.qty});
+      // Warn if not enough stock (compare in same inventory unit)
+      if(item.qty-deduct<0){
+        const rateDisp=p.rateUnit!==p.unit?` (${fn(p.perTank)} ${p.rateUnit} = ${fn(deduct)} ${p.unit})`:'';
+        warns.push(`${item.name}: need ${fn(deduct)} ${p.unit}${rateDisp}, only ${fn(item.qty)} ${p.unit} in stock`);
+      }
+      item.qty=Math.max(0,parseFloat((item.qty-deduct).toFixed(4)));
+      usageLog.push({
+        id:item.id,
+        name:item.name,
+        unit:item.unit,             // inventory unit
+        rateUnit:p.rateUnit||p.unit,
+        rate:p.rate,
+        rateBasis:p.rateBasis,
+        perTank:p.perTank,          // in rate unit (for display)
+        perTankInInvUnit:deduct,    // in inventory unit
+        perTankDisplay:p.perTankDisplay,
+        deducted:deduct,            // always in inventory unit
+        remaining:item.qty
+      });
     });
   });
   saveInvState();updSummary();
@@ -2417,6 +2530,37 @@ function submitSpray(){
     submittedAt:new Date().toISOString()
   };
   const h=loadHistory();h.unshift(rec);saveHistory(h);
+
+  // ── AUTO-SYNC PGR USE TO GDD TRACKER ───────────────────────
+  // If any PGR was used, auto-log it to the GDD application log
+  const pgrProducts=['Primo Maxx','Anuew','Cutless','Legacy','Musketeer','PoaCure','Proxy','Trimmit'];
+  const pgrUsed=usageLog.filter(u=>{
+    const item=INV.find(i=>i.id===u.id);
+    return item&&(item.cat==='pgr'||pgrProducts.includes(item.name));
+  });
+  if(pgrUsed.length){
+    gddApps=loadGDDApps();
+    pgrUsed.forEach(u=>{
+      // Only add if not already logged for this date + product
+      const alreadyLogged=gddApps.some(a=>a.date===rec.date&&a.prodName===u.name);
+      if(!alreadyLogged){
+        gddApps.unshift({
+          id:'gdd_ss_'+rec.id+'_'+u.id,
+          date:rec.date,
+          rate:u.rate||'',
+          area:rec.area||'',
+          reset:'1',      // always reset GDD accumulation on application
+          prodName:u.name,
+          prodId:u.id,
+          fromSpraySheet:true,
+          sprayRef:rec.id,
+          loggedAt:new Date().toISOString()
+        });
+      }
+    });
+    saveGDDApps();
+    showToast('📏 GDD tracker updated — '+pgrUsed.map(u=>u.name).join(', ')+' logged');
+  }
 
   // ── AUTO-ADD TO AGRONOMIC CALENDAR ──────────────────────────
   // Summarise products applied for the calendar notes
@@ -2518,22 +2662,72 @@ function renderSSAlertBanner(){
     </div>`).join('');
 }
 
+// Detect category of a spray record based on products used
+function sprayRecordCategory(r){
+  const cats=new Set();
+  (r.usageLog||[]).forEach(u=>{
+    const item=INV.find(i=>i.id===u.id||i.name===u.name);
+    const cat=item?.cat||'';
+    if(cat==='fungicides')cats.add('fungicide');
+    else if(cat==='pgr')cats.add('pgr');
+    else if(cat==='herbicides')cats.add('herbicide');
+    else if(cat==='granular'||cat==='liquid')cats.add('fertilizer');
+    else if(cat==='wetting')cats.add('wetting');
+  });
+  return cats;
+}
+
+const CAT_STYLE={
+  fungicide:  {bg:'#FDECEA',color:'#7B1C1C',border:'#F5C6C6',label:'🍄 Fungicide'},
+  pgr:        {bg:'#F3EAF8',color:'#6C3483',border:'#D7BDE2',label:'📏 Growth Reg.'},
+  herbicide:  {bg:'#FEF9E7',color:'#7D6608',border:'#F9E79F',label:'🌿 Herbicide'},
+  fertilizer: {bg:'#E8F8F5',color:'#1A5E42',border:'#A9DFBF',label:'🌱 Fertility'},
+  wetting:    {bg:'#EAF4FB',color:'#154360',border:'#AED6F1',label:'💧 Wetting Agent'},
+};
+
 function renderHistory(){
-  const h=loadHistory();
+  let h=loadHistory();
+
+  // Sort by date descending (newest first)
+  h=[...h].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+
+  // Apply filters
+  const typeFilter=document.getElementById('hist_filter_type')?.value||'';
+  const apptypeFilter=document.getElementById('hist_filter_apptype')?.value||'';
+  const monthFilter=document.getElementById('hist_filter_month')?.value||'';
+  const areaFilter=document.getElementById('hist_filter_area')?.value||'';
+
+  if(typeFilter) h=h.filter(r=>sprayRecordCategory(r).has(typeFilter));
+  if(apptypeFilter) h=h.filter(r=>r.apptype===apptypeFilter);
+  if(monthFilter) h=h.filter(r=>r.date?.startsWith(monthFilter));
+  if(areaFilter) h=h.filter(r=>r.area===areaFilter||r.area?.includes(areaFilter));
+
   document.getElementById('histCnt').textContent=h.length+' record'+(h.length!==1?'s':'');
   const c=document.getElementById('histList');
-  if(!h.length){c.innerHTML='<div class="hist-empty">No spray sheets yet.<br><small>Submit the form to record an application.</small></div>';return;}
-  c.innerHTML=h.map(r=>`
+  if(!h.length){
+    c.innerHTML='<div class="hist-empty">No spray sheets match your filters.<br><small>Try clearing the filters above.</small></div>';
+    return;
+  }
+
+  c.innerHTML=h.map(r=>{
+    const cats=[...sprayRecordCategory(r)];
+    const catBadges=cats.map(cat=>{
+      const s=CAT_STYLE[cat]||{};
+      return`<span style="background:${s.bg};color:${s.color};border:1px solid ${s.border};border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap;">${s.label}</span>`;
+    }).join('');
+
+    return `
     <div class="srec">
       <div class="srec-head">
-        <div>
-          <div class="srt">${r.area} — ${r.course}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+            <div class="srt" style="margin:0;">${r.area} — ${r.course}</div>
+            ${r.apptype?`<span style="background:${r.apptype==='Foliar'?'#E0F2E9':'#FDF8EF'};color:${r.apptype==='Foliar'?'#1A6640':'#7A5A1A'};border:1px solid ${r.apptype==='Foliar'?'#A8D9BF':'#C8A96E'};border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;">${r.apptype==='Foliar'?'🌿':'🪱'} ${r.apptype}</span>`:''}
+            ${catBadges}
+          </div>
           <div class="srm">${r.day||''}, ${r.date} · ${r.app}</div>
           <div class="srbr">
-            <span class="srb a">${r.area}</span>
-            <span class="srb c">${r.course}</span>
-            ${r.apptype?`<span class="srb" style="${r.apptype==='Foliar'?'background:#E0F2E9;color:#1A6640;border:none;':'background:#FDF8EF;color:#7A5A1A;border:1px solid #C8A96E;'}">${r.apptype==='Foliar'?'🌿':'🪱'} ${r.apptype}</span>`:''}
-            ${r.sqft?`<span class="srb">${Number(r.sqft).toLocaleString()} sq ft</span>`:''}
+            ${r.sqft?`<span class="srb">${Number(r.sqft).toLocaleString()} sq ft · ${(r.sqft/43560).toFixed(2)} ac</span>`:''}
             ${r.nozzle?`<span class="srb">${r.nozzle}</span>`:''}
             ${r.psi?`<span class="srb">${r.psi} PSI</span>`:''}
             ${r.mph?`<span class="srb">${r.mph} MPH</span>`:''}
@@ -2561,8 +2755,8 @@ function renderHistory(){
                 <div class="sr-ms">
                   <div class="sr-mn">${mi+1}</div>
                   <span style="flex:1"><strong>${m.name}</strong> <button class="label-link" onclick="openCDMSModal('${cdmsUrl(m.name)}','${m.name}')" style="font-size:9px;padding:1px 5px;">📄</button></span>
-                  ${m.rate?`<span style="font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted);margin-left:6px;">${fn(m.rate)} ${m.unit}/${m.rateBasis==='acre'?'ac':'1K'}</span>`:''}
-                  ${(m.perTankDisplay||m.perTank)?`<span style="font-family:'DM Mono',monospace;font-size:10.5px;background:#EDF7F2;color:var(--rough);padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:600;">${m.perTankDisplay||(fn(m.perTank)+' '+m.unit)}/tank</span>`:''}
+                  ${m.rate?`<span style="font-family:'DM Mono',monospace;font-size:10.5px;color:var(--muted);margin-left:6px;">${fn(m.rate)} ${m.rateUnit||m.unit}/${m.rateBasis==='acre'?'ac':'1K'}</span>`:''}
+                  ${(m.perTankDisplay||m.perTank)?`<span style="font-family:'DM Mono',monospace;font-size:10.5px;background:#EDF7F2;color:var(--rough);padding:1px 6px;border-radius:3px;margin-left:5px;font-weight:600;">${m.perTankDisplay||(fn(m.perTank)+' '+(m.rateUnit||m.unit))}/tank</span>`:''}
                 </div>`).join('')}
             </div>`:''}
         </div>`).join('')||''}
@@ -2570,20 +2764,70 @@ function renderHistory(){
         <div class="sr-prods">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px;">Inventory Deducted</div>
           ${r.usageLog.map(u=>`<div class="sr-pline">
-            <span class="sr-pname">${u.name}${u.rate?` <span style="font-size:10px;color:var(--muted);font-weight:400;">@ ${fn(u.rate)} ${u.unit}/${u.rateBasis==='acre'?'ac':'1K'}</span>`:''}${(u.perTankDisplay||u.perTank)?` <span style="font-size:10px;color:var(--muted);">(${u.perTankDisplay||(fn(u.perTank)+' '+u.unit)}/tank)</span>`:''}</span>
-            <span class="sr-pqty">−${fn(u.deducted)} ${u.unit} · ${fn(u.remaining)} left</span>
+            <span class="sr-pname">${u.name}${u.rate?` <span style="font-size:10px;color:var(--muted);font-weight:400;">@ ${fn(u.rate)} ${u.rateUnit||u.unit}/${u.rateBasis==='acre'?'ac':'1K'}</span>`:''}${(u.perTankDisplay||u.perTank)?` <span style="font-size:10px;color:var(--muted);">(${u.perTankDisplay||(fn(u.perTank)+' '+(u.rateUnit||u.unit))}/tank)</span>`:''}</span>
+            <span class="sr-pqty">−${fn(u.deducted)} ${u.unit}${u.rateUnit&&u.rateUnit!==u.unit?` <span style="font-size:9px;color:var(--muted);">(${fn(u.perTank)} ${u.rateUnit}→${u.unit})</span>`:''} · ${fn(u.remaining)} ${u.unit} left</span>
           </div>`).join('')}
         </div>`:''}
       ${r.notes?`<div style="margin-top:7px;font-size:11px;color:var(--muted);font-style:italic;">📝 ${r.notes}</div>`:''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function delRec(id){const h=loadHistory().filter(r=>r.id!==id);saveHistory(h);renderHistory();showToast('Record deleted');}
+
+// Load spray history from ALL team members (shared read)
+async function syncSharedHistory(){
+  if(!_sb){showToast('☁️ Connect to Supabase first to sync team records');return;}
+  showToast('🔄 Loading team spray sheets…');
+  try{
+    // Query all spray_history records across all users (RLS allows shared read)
+    const {data,error}=await _sb.from('tpgc_records')
+      .select('data,user_id,updated_at')
+      .eq('table_name','spray_history')
+      .order('updated_at',{ascending:false});
+    if(error) throw error;
+    if(!data?.length){showToast('No team records found yet');return;}
+    // Merge all users' records into local history
+    const existing=loadHistory();
+    const existingIds=new Set(existing.map(r=>r.id));
+    let added=0;
+    data.forEach(row=>{
+      const rec=row.data;
+      if(rec&&rec.id&&!existingIds.has(rec.id)){
+        existing.push(rec);
+        existingIds.add(rec.id);
+        added++;
+      }
+    });
+    // Sort by date and save
+    existing.sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+    localStorage.setItem('tpgc_hist',JSON.stringify(existing));
+    renderHistory();
+    showToast(`✓ Synced — ${added} new team record${added!==1?'s':''} loaded (${data.length} total)`);
+  }catch(e){
+    showToast('⚠ Sync failed: '+e.message);
+  }
+}
 
 function printSpraySheet(id){
   const r=loadHistory().find(h=>h.id===id);
   if(!r){showToast('Record not found');return;}
 
   const fn2=v=>v!=null?Number(v).toLocaleString('en-US',{maximumFractionDigits:3}):'—';
+
+  // Round amt to whole oz for print — parse display string, floor the oz portion
+  function roundAmtForPrint(displayStr, unit){
+    if(!displayStr||displayStr==='—') return '—';
+    // "1 gal 47.4 fl oz" → "1 gal 47 fl oz"
+    const galOz=displayStr.match(/^(\d+)\s*gal\s+([\d.]+)\s*(.*)/);
+    if(galOz) return `${galOz[1]} gal ${Math.floor(parseFloat(galOz[2]))} ${galOz[3]}`.trim();
+    // "1 lb 2.7 oz" → "1 lb 2 oz"
+    const lbOz=displayStr.match(/^(\d+)\s*lb\s+([\d.]+)\s*(.*)/);
+    if(lbOz) return `${lbOz[1]} lb ${Math.floor(parseFloat(lbOz[2]))} ${lbOz[3]}`.trim();
+    // "14.6 oz" → "14 oz" or "14.6 fl oz" → "14 fl oz"
+    const plain=displayStr.match(/^([\d.]+)\s*(.*)/);
+    if(plain) return `${Math.floor(parseFloat(plain[1]))} ${plain[2]}`.trim();
+    return displayStr;
+  }
 
   const pw=850,ph=1100;
   const left=Math.round(window.screenX+(window.outerWidth-pw)/2);
@@ -2592,15 +2836,18 @@ function printSpraySheet(id){
   if(!win)return;
 
   const tanksHTML=(r.tanks||[]).map((t,ti)=>{
-    const mixRows=(t.mixOrder||[]).filter(m=>m.name).map((m,mi)=>`
+    const mixRows=(t.mixOrder||[]).filter(m=>m.name).map((m,mi)=>{
+      const rawDisplay=m.perTankDisplay||(m.perTank?fn2(m.perTank)+' '+m.unit:'—');
+      const printAmt=roundAmtForPrint(rawDisplay, m.unit);
+      return `
       <tr>
         <td style="padding:6px 8px;text-align:center;border:1px solid #ccc;font-weight:700;">${mi+1}</td>
         <td style="padding:6px 8px;border:1px solid #ccc;font-weight:600;">${m.name||'—'}</td>
         <td style="padding:6px 8px;text-align:center;border:1px solid #ccc;font-family:monospace;">${m.unit||'—'}</td>
         <td style="padding:6px 8px;text-align:center;border:1px solid #ccc;font-family:monospace;">${m.rate?fn2(m.rate)+' '+m.unit+'/'+(m.rateBasis==='acre'?'ac':'1K'):'—'}</td>
-        <td style="padding:6px 8px;text-align:center;border:1px solid #ccc;font-family:monospace;font-weight:700;">${m.perTankDisplay||(m.perTank?fn2(m.perTank)+' '+m.unit:'—')}</td>
+        <td style="padding:6px 8px;text-align:center;border:1px solid #ccc;font-family:monospace;font-weight:700;">${printAmt}</td>
         <td style="padding:6px 8px;border:1px solid #ccc;"></td>
-      </tr>`).join('');
+      </tr>`;}).join('');
     return `
       <div style="margin-top:18px;page-break-inside:avoid;">
         <div style="background:#f0f4f0;border:1px solid #c0d0c0;border-radius:4px;padding:7px 12px;font-size:12px;font-weight:700;margin-bottom:6px;">
@@ -2623,20 +2870,6 @@ function printSpraySheet(id){
         </table>
       </div>`;
   }).join('');
-
-  const usageHTML=(r.usageLog||[]).length?`
-    <div style="margin-top:18px;page-break-inside:avoid;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:5px;">Inventory Deducted</div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px;">
-        ${r.usageLog.map(u=>`<tr style="border-bottom:1px solid #eee;">
-          <td style="padding:5px 6px;font-weight:500;">${u.name}</td>
-          <td style="padding:5px 6px;font-family:monospace;color:#555;">${u.rate?'@ '+fn2(u.rate)+' '+u.unit+'/1K':''}</td>
-          <td style="padding:5px 6px;font-family:monospace;">−${fn2(u.deducted)} ${u.unit}</td>
-          <td style="padding:5px 6px;font-family:monospace;color:#777;">${fn2(u.remaining)} ${u.unit} remaining</td>
-        </tr>`).join('')}
-      </table>
-    </div>`:'';
-
   const doc=`<!DOCTYPE html><html><head>
   <meta charset="utf-8">
   <title>Spray Sheet — ${r.date} ${r.area}</title>
@@ -2687,8 +2920,6 @@ function printSpraySheet(id){
   <div class="section-label">Tank Mix Order</div>
   ${tanksHTML||'<p style="color:#888;font-size:12px;">No tank data recorded.</p>'}
 
-  ${usageHTML}
-
   ${r.notes?`<div style="margin-top:14px;background:#f9f9f6;border-left:3px solid #C8A96E;padding:8px 12px;font-size:12px;color:#555;"><strong>Notes:</strong> ${r.notes}</div>`:''}
 
   <div class="section-label" style="margin-top:20px;">Signatures</div>
@@ -2712,6 +2943,8 @@ function printSpraySheet(id){
 // GDD TRACKER — Open-Meteo live weather, Torrey Pines
 // ══════════════════════════════════════════════════════════════
 const GDD_BASE=50, GDD_THRESH=200;
+const PGR_GDD_THRESH={'Primo Maxx':200,'Anuew':150,'Cutless':300,'Legacy':300,'Musketeer':250,'Proxy':250,'Trimmit':300,'PoaCure':null};
+const PGR_EMOJI={'Primo Maxx':'📏','Anuew':'🌾','Cutless':'✂️','Legacy':'✂️','Musketeer':'⚔️','Proxy':'🔄','Trimmit':'✂️','PoaCure':'🌿'};
 const LAT=32.9048, LON=-117.2521; // Torrey Pines GC
 
 async function fetchWeather(){
@@ -2918,6 +3151,105 @@ function renderGDDTable(){
   }).join('');
 }
 
+function getGDDSinceLastApp(prodName){
+  // Get GDD accumulated since most recent application of this product
+  const apps=loadGDDApps().filter(a=>(!a.prodName||a.prodName===prodName)).sort((a,b)=>b.date.localeCompare(a.date));
+  const lastApp=apps[0];
+  if(!lastApp) return {gdd:null, date:null, daysSince:null};
+  const series=getGDDSeries();
+  const gddSince=series.filter(d=>d.date>=lastApp.date).reduce((s,d)=>s+parseFloat(d.daily||0),0);
+  const daysSince=Math.floor((Date.now()-new Date(lastApp.date+'T12:00'))/86400000);
+  return {gdd:Math.round(gddSince*10)/10, date:lastApp.date, daysSince, area:lastApp.area||''};
+}
+
+function renderPGRAlertBanner(){
+  const banner=document.getElementById('pgr_alert_banner');
+  if(!banner) return;
+  const gddAppsAll=loadGDDApps();
+  const series=getGDDSeries();
+  if(!series.length){
+    banner.style.display='none';
+    return;
+  }
+
+  // Get all unique PGR products ever logged
+  const allProds=new Set(gddAppsAll.map(a=>a.prodName||'Primo Maxx').filter(Boolean));
+  // Always include Primo Maxx even if never logged
+  allProds.add('Primo Maxx');
+
+  const cards=[];
+
+  allProds.forEach(prodName=>{
+    const thresh=PGR_GDD_THRESH[prodName];
+    if(thresh===null||thresh===undefined) return; // PoaCure — skip GDD
+    const emoji=PGR_EMOJI[prodName]||'📏';
+    const {gdd,date,daysSince}=getGDDSinceLastApp(prodName);
+
+    // Calc avg daily GDD for projection
+    const last7=series.slice(-7);
+    const avgDaily=last7.length?last7.reduce((s,d)=>s+parseFloat(d.daily||0),0)/last7.length:null;
+
+    let sev, msg, pct;
+    if(gdd===null){
+      sev='info';
+      pct=0;
+      msg=`No application logged yet. Log your first ${prodName} application below.`;
+    } else {
+      pct=Math.min(100,Math.round((gdd/thresh)*100));
+      const daysToThresh=avgDaily&&gdd<thresh?Math.ceil((thresh-gdd)/avgDaily):null;
+      if(gdd>=thresh){
+        sev='critical';
+        msg=`<strong>${gdd} GDD</strong> accumulated since last application on ${date} (${daysSince}d ago). `+
+          `Reapplication threshold of <strong>${thresh} GDD</strong> has been reached. `+
+          `Apply ${prodName} as soon as conditions allow.`;
+      } else if(pct>=75){
+        sev='warning';
+        msg=`<strong>${gdd} / ${thresh} GDD</strong> since last application on ${date}. `+
+          `${daysToThresh?`Threshold reached in approximately <strong>${daysToThresh} days</strong>.`:''} `+
+          `Plan ${prodName} reapplication this week.`;
+      } else {
+        sev='ok';
+        msg=`<strong>${gdd} / ${thresh} GDD</strong> accumulated since ${date} (${daysSince}d). `+
+          `${daysToThresh?`Threshold in ~${daysToThresh} days.`:'On track.'}`;
+      }
+    }
+    cards.push({prodName,emoji,sev,msg,pct,thresh,gdd});
+  });
+
+  if(!cards.length){banner.style.display='none';return;}
+
+  const sevStyle={
+    critical:'background:#FDECEA;border:1.5px solid #C0392B;border-left:5px solid #C0392B;',
+    warning: 'background:#FEF9E7;border:1.5px solid #E67E22;border-left:5px solid #E67E22;',
+    ok:      'background:#E8F8EE;border:1.5px solid #27AE60;border-left:5px solid #27AE60;',
+    info:    'background:#EEF2FF;border:1.5px solid #6366F1;border-left:5px solid #6366F1;',
+  };
+  const sevColor={critical:'#7B1C1C',warning:'#7A4100',ok:'#1A5C30',info:'#3730A3'};
+
+  banner.style.display='block';
+  banner.innerHTML=cards.map(c=>`
+    <div style="${sevStyle[c.sev]}border-radius:9px;padding:12px 16px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:20px;flex-shrink:0;">${c.emoji}</span>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:13px;font-weight:700;color:${sevColor[c.sev]};margin-bottom:2px;">${c.prodName} ${c.sev==='critical'?'— Reapply Now':c.sev==='warning'?'— Reapplication Due Soon':c.sev==='info'?'— Not Yet Logged':''}</div>
+          <div style="font-size:11.5px;color:${sevColor[c.sev]};line-height:1.5;">${c.msg}</div>
+        </div>
+        ${c.gdd!==null&&c.thresh?`
+        <div style="text-align:right;flex-shrink:0;min-width:80px;">
+          <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:${sevColor[c.sev]};">${c.pct}%</div>
+          <div style="font-size:9.5px;color:${sevColor[c.sev]};opacity:.7;">of ${c.thresh} GDD</div>
+          <div style="height:5px;background:rgba(0,0,0,.1);border-radius:99px;margin-top:4px;overflow:hidden;width:80px;">
+            <div style="width:${c.pct}%;height:100%;background:${c.sev==='critical'?'#C0392B':c.sev==='warning'?'#E67E22':'#27AE60'};border-radius:99px;transition:width .5s;"></div>
+          </div>
+        </div>`:''}
+      </div>
+    </div>`).join('');
+
+  // Also update the spray sheet alert banner if visible
+  if(typeof renderSSAlertBanner==='function') renderSSAlertBanner();
+}
+
 function logGDDApp(){
   const date=document.getElementById('gApp_date').value;
   const rate=document.getElementById('gApp_rate').value;
@@ -2928,14 +3260,14 @@ function logGDDApp(){
   gddApps.unshift({id:'gdd_'+Date.now(),date,rate,area,reset,loggedAt:new Date().toISOString()});
   saveGDDApps();
   renderGDDAppList();
-  renderGDDChart();renderGDDStats();renderGDDTable();
+  renderGDDChart();renderGDDStats();renderGDDTable();renderPGRAlertBanner();
   document.getElementById('gApp_date').value='';
   document.getElementById('gApp_rate').value='';
   showToast(`✓ Primo Maxx application logged — ${date}`);
 }
 function delGDDApp(id){
   gddApps=loadGDDApps().filter(a=>a.id!==id);saveGDDApps();
-  renderGDDAppList();renderGDDChart();renderGDDStats();renderGDDTable();
+  renderGDDAppList();renderGDDChart();renderGDDStats();renderGDDTable();renderPGRAlertBanner();
   showToast('Application record deleted');
 }
 function renderGDDAppList(){
@@ -2945,10 +3277,10 @@ function renderGDDAppList(){
   c.innerHTML=`<div class="app-log-list">${gddApps.map(a=>`
     <div class="app-log-item">
       <div class="al-left">
-        <div class="al-date">${a.date}</div>
-        <div class="al-detail">${a.area}${a.reset==='1'?' · Reset GDD':''}</div>
+        <div class="al-date">${a.date} ${a.prodName&&a.prodName!=='Primo Maxx'?`<span style="font-size:9px;background:#F3EAF8;color:#6C3483;padding:1px 5px;border-radius:3px;font-weight:700;">${a.prodName}</span>`:''}</div>
+        <div class="al-detail">${a.area}${a.reset==='1'?' · Reset GDD':''}${a.fromSpraySheet?' <span style="font-size:9px;background:#E0F2E9;color:#1A6640;padding:1px 5px;border-radius:3px;font-weight:700;">📋 From Spray Sheet</span>':''}</div>
       </div>
-      <span class="al-rate">${a.rate} oz/1K</span>
+      <span class="al-rate">${a.rate?a.rate+' oz/1K':'—'}</span>
       <button class="del-rec" onclick="delGDDApp('${a.id}')">✕</button>
     </div>`).join('')}</div>`;
 }
@@ -2966,7 +3298,7 @@ function toggleInvDropdown(e){
   document.querySelectorAll('.tab-dropdown').forEach(d=>d.classList.remove('open'));
   if(!isOpen){dd.classList.add('open');}
   // Also switch to inventory view if we're on another tab
-  const specials2=['spraysheet','gdd','apptrack','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'];
+  const specials2=['spraysheet','gdd','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'];
   if(specials2.includes(curTab)){
     curTab='all';curCat='all';
     // deactivate all tabs
@@ -2995,7 +3327,7 @@ function selectInvCat(cat, e){
 
 function switchToInvPage(){
   // Show inventory page, hide all others
-  ['inv','spraysheet','gdd','apptrack','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'].forEach(id=>{
+  ['inv','spraysheet','gdd','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'].forEach(id=>{
     const el=document.getElementById('pg-'+id);
     if(el)el.classList.toggle('active',id==='inv');
   });
@@ -3104,7 +3436,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     curTab=tab.dataset.tab;
     // Close any open dropdowns
     document.querySelectorAll('.tab-dropdown').forEach(d=>d.classList.remove('open'));
-    const specials=['spraysheet','gdd','apptrack','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'];
+    const specials=['spraysheet','gdd','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'];
     // Inventory tab and sub-categories all route to pg-inv
     const INV_CATS=['all','fungicides','herbicides','pgr','wetting','pigment','granular','liquid'];
     if(INV_CATS.includes(curTab)){curCat=curTab;}
@@ -3112,18 +3444,22 @@ document.querySelectorAll('.tab').forEach(tab=>{
     const isInv=!specials.includes(curTab)||INV_CATS2.includes(curTab);
     if(isInv){switchToInvPage();return;}  // let switchToInvPage handle it
     // Non-inventory tab
-    ['inv','spraysheet','gdd','apptrack','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'].forEach(id=>{
+    ['inv','spraysheet','gdd','gpsmap','weather','turfhealth','soiltest','budget','compliance','pests','calendar','aiengine'].forEach(id=>{
       const el=document.getElementById('pg-'+id);
       if(el)el.classList.toggle('active',curTab===id);
     });
     document.getElementById('summaryBar').style.display='none';
     document.getElementById('searchInput').style.display='none';
     if(curTab==='spraysheet'){renderHistory();renderSSAlertBanner();}
-    if(curTab==='gdd'){renderGDDAppList();renderGDDStats();renderGDDChart();renderGDDTable();}
-    if(curTab==='apptrack'){populateAtProdFilter();renderAppTracker();}
+    if(curTab==='gdd'){renderGDDAppList();renderGDDStats();renderGDDChart();renderGDDTable();renderPGRAlertBanner();}
     if(curTab==='gpsmap')renderMapZoneStatus();
-    if(curTab==='weather'&&!window._wxFetched){window._wxFetched=true;fetchWeatherIntelligence();}
-    else if(curTab==='weather')renderWeatherPage();
+    if(curTab==='weather'&&!window._wxFetched){
+      window._wxFetched=true;
+      fetchWeatherIntelligence().then(()=>initCIMIS());
+    } else if(curTab==='weather'){
+      renderWeatherPage();
+      initCIMIS();
+    }
     if(curTab==='turfhealth')renderTHTable();
     if(curTab==='soiltest')renderSTTable();
     if(curTab==='budget')renderBudget();
@@ -3435,6 +3771,9 @@ async function fetchWeatherIntelligence(){
       return{date,hi,lo,avg,gdd,rh,soilT,rain,wind,et,dollarSpot,pythium,anthracnose};
     });
     renderWeatherPage();
+    // Update source label
+    const srcEl = document.getElementById('wx_data_source');
+    if(srcEl) srcEl.textContent = 'La Jolla CA · 32.90°N 117.25°W · Open-Meteo · '+wxData[0]?.date+' to '+wxData[wxData.length-1]?.date;
     showToast('✓ Weather updated — Torrey Pines conditions loaded');
   }catch(e){
     const isOffline=!navigator.onLine||e.message.toLowerCase().includes('fetch');
@@ -3496,6 +3835,148 @@ function riskLabel(v){
   if(v>=40)return{l:'Moderate',c:'#E67E22',bg:'#FEF3E2'};
   if(v>=20)return{l:'Low-Mod',c:'#F9CA4B',bg:'#FEF9E7'};
   return{l:'Low',c:'#27AE60',bg:'#E8F8EE'};
+}
+
+// ════════════════════════════════════════════════════════════════
+// CIMIS INTEGRATION
+// Station 173 = Torrey Pines (on-site CIMIS station)
+// Zip 92037 = La Jolla (Spatial CIMIS fallback — no CORS issues)
+// ════════════════════════════════════════════════════════════════
+const CIMIS_STATION = '173';   // Torrey Pines on-site station
+const CIMIS_ZIP     = '92037'; // La Jolla zip (Spatial CIMIS)
+
+function saveCIMISKey(){
+  const key = (document.getElementById('cimis_key_input')?.value||'').trim();
+  if(!key){ showToast('⚠ Enter your CIMIS AppKey'); return; }
+  localStorage.setItem('tpgc_cimis_key', key);
+  showToast('✓ CIMIS key saved — fetching data…');
+  fetchCIMISData(key);
+}
+
+function loadCIMISKey(){
+  const k = localStorage.getItem('tpgc_cimis_key')||'';
+  const el = document.getElementById('cimis_key_input');
+  if(el && k) el.value = k;
+  return k;
+}
+
+function setCIMISStatus(msg, ok=true){
+  const el = document.getElementById('cimis_status');
+  if(!el) return;
+  el.style.display = 'block';
+  el.style.color = ok ? 'var(--ok)' : 'var(--low)';
+  el.textContent = msg;
+}
+
+// CIMIS API endpoint (government REST API)
+// NOTE: CIMIS blocks direct browser requests (CORS).
+// We use their Spatial/Zip endpoint which is more permissive,
+// and fall back to Open-Meteo if CORS blocks us.
+async function fetchCIMISData(appKey){
+  if(!appKey){ appKey = loadCIMISKey(); }
+  if(!appKey) return; // no key, skip
+
+  const today = new Date();
+  const end = today.toISOString().slice(0,10);
+  const start = new Date(today - 13*86400000).toISOString().slice(0,10);
+
+  // Try station data first, fall back to zip/spatial
+  const urls = [
+    // Station 173 (Torrey Pines) — on-site, most accurate
+    `https://et.water.ca.gov/api/data?appKey=${appKey}&targets=${CIMIS_STATION}&startDate=${start}&endDate=${end}&dataItems=day-air-tmp-max,day-air-tmp-min,day-eto,day-precip,day-rel-hum-avg,day-wind-spd-avg,day-soil-tmp-avg&unitOfMeasure=E`,
+    // Zip fallback — La Jolla 92037
+    `https://et.water.ca.gov/api/data?appKey=${appKey}&targets=${CIMIS_ZIP}&startDate=${start}&endDate=${end}&dataItems=day-air-tmp-max,day-air-tmp-min,day-eto,day-precip,day-rel-hum-avg,day-wind-spd-avg&unitOfMeasure=E`
+  ];
+
+  let lastError = '';
+  for(const url of urls){
+    try{
+      const res = await fetch(url);
+      if(!res.ok){ lastError = `HTTP ${res.status}`; continue; }
+      const json = await res.json();
+      const records = json?.Data?.Providers?.[0]?.Records || [];
+      if(!records.length){ lastError = 'No records returned'; continue; }
+
+      // Merge CIMIS data into wxData
+      let merged = 0;
+      records.forEach(r=>{
+        const date = r.Date; // "YYYY-MM-DD"
+        const get = (item) => parseFloat(r.DayVals?.find(v=>v.ItemName===item)?.Value)||null;
+        const hiF  = get('DayAirTmpMax');
+        const loF  = get('DayAirTmpMin');
+        const eto  = get('DayEto');
+        const rain = get('DayPrecip');
+        const rh   = get('DayRelHumAvg');
+        const wind = get('DayWindSpdAvg');
+        const soilT= get('DaySoilTmpAvg');
+        const gdd  = (hiF!==null&&loF!==null)?Math.max(0,((hiF+loF)/2)-50):null;
+
+        const existing = wxData.find(w=>w.date===date);
+        if(existing){
+          // Override Open-Meteo with CIMIS where available
+          if(hiF!==null)  existing.hi    = Math.round(hiF*10)/10;
+          if(loF!==null)  existing.lo    = Math.round(loF*10)/10;
+          if(eto!==null)  existing.et    = Math.round(eto*1000)/1000;
+          if(rain!==null) existing.rain  = Math.round(rain*100)/100;
+          if(rh!==null)   existing.rh    = Math.round(rh);
+          if(wind!==null) existing.wind  = Math.round(wind*10)/10;
+          if(soilT!==null)existing.soilT = Math.round(soilT*10)/10;
+          if(gdd!==null)  existing.gdd   = Math.round(gdd*10)/10;
+          existing.cimis = true; // flag as CIMIS-sourced
+          merged++;
+        }
+      });
+
+      const stationType = url.includes(CIMIS_STATION) ? `Station ${CIMIS_STATION} (Torrey Pines)` : `Zip ${CIMIS_ZIP} (La Jolla)`;
+      setCIMISStatus(`✓ CIMIS connected — ${stationType} · ${merged} days merged · ETo, humidity, soil temp updated`);
+
+      // Update the banner to show connected state
+      const banner = document.getElementById('cimis_banner');
+      if(banner) banner.style.background = '#E8F8EE';
+
+      // Re-render with updated data
+      renderWeatherPage();
+      showToast(`✓ CIMIS data loaded — ${merged} days updated with local station data`);
+      return; // success
+
+    }catch(e){
+      lastError = e.message;
+      // CORS error — CIMIS blocks direct browser requests
+      if(e.message.toLowerCase().includes('cors')||e.message.toLowerCase().includes('fetch')||e.message.toLowerCase().includes('network')){
+        handleCIMISCORSError(appKey);
+        return;
+      }
+    }
+  }
+  setCIMISStatus(`⚠ CIMIS fetch failed: ${lastError}. Using Open-Meteo data.`, false);
+}
+
+function handleCIMISCORSError(appKey){
+  // CIMIS blocks direct browser requests with CORS.
+  // Show helpful message and provide a manual data entry option.
+  setCIMISStatus('⚠ CIMIS blocks direct browser requests (CORS restriction). See note below for workaround.', false);
+  const banner = document.getElementById('cimis_banner');
+  if(banner){
+    banner.innerHTML += `
+      <div style="flex-basis:100%;background:#FEF9E7;border:1px solid #E67E22;border-radius:7px;padding:10px 12px;margin-top:6px;font-size:12px;color:#7A4100;line-height:1.6;">
+        <strong>CIMIS CORS Note:</strong> The CIMIS website blocks direct browser requests for security.
+        Your AppKey <strong style="font-family:monospace;">${appKey.slice(0,8)}…</strong> is saved — the app will use it to show your key is registered.<br><br>
+        <strong>Best workaround:</strong> The app already uses <strong>Open-Meteo</strong> for Torrey Pines (La Jolla coordinates) which provides nearly identical data including ETo, soil temperature, and precipitation.
+        CIMIS ETo values for coastal San Diego typically differ from Open-Meteo by less than 5%.<br><br>
+        <strong>For exact CIMIS data:</strong> You can manually check
+        <a href="https://cimis.water.ca.gov/WSNReportCriteria.aspx" target="_blank" style="color:var(--fringe);">cimis.water.ca.gov</a>
+        → Station 173 (Torrey Pines) and compare with the app's values.
+      </div>`;
+  }
+}
+
+// Auto-load CIMIS on weather tab open if key exists
+function initCIMIS(){
+  const key = loadCIMISKey();
+  if(key){
+    document.getElementById('cimis_key_input').value = key;
+    fetchCIMISData(key);
+  }
 }
 
 function renderWeatherPage(){
@@ -4728,14 +5209,27 @@ function showSupabaseSetupSQL(){
 CREATE INDEX IF NOT EXISTS idx_tpgc_user_table
   ON public.tpgc_records (user_id, table_name);
 
+-- Enable Row Level Security
 ALTER TABLE public.tpgc_records ENABLE ROW LEVEL SECURITY;
 
+-- Default policy: users own their records
 DROP POLICY IF EXISTS "Users own records" ON public.tpgc_records;
 CREATE POLICY "Users own records"
   ON public.tpgc_records FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- SHARED SPRAY HISTORY: all authenticated users can READ spray_history
+-- (write is still restricted to the record owner)
+DROP POLICY IF EXISTS "Team can read spray history" ON public.tpgc_records;
+CREATE POLICY "Team can read spray history"
+  ON public.tpgc_records FOR SELECT
+  USING (
+    table_name = 'spray_history'
+    AND auth.uid() IS NOT NULL
+  );
+
+-- Enable real-time
 ALTER PUBLICATION supabase_realtime ADD TABLE public.tpgc_records;`;
 
   // Remove any existing SQL modal
