@@ -2958,8 +2958,7 @@ async function fetchWeather(){
     const startDate=new Date(endDate);startDate.setDate(startDate.getDate()-days);
     const fmt=d=>d.toISOString().split('T')[0];
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America%2FLos_Angeles&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}`;
-    const res=await fetch(url);
-    if(!res.ok)throw new Error('API error '+res.status);
+    const res=await fetchWithRetry(url);
     const data=await res.json();
     weatherData=data.daily.time.map((date,i)=>({
       date,
@@ -2971,7 +2970,8 @@ async function fetchWeather(){
     document.getElementById('wsText').textContent=`Live · ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
     renderGDDChart();renderGDDStats();renderGDDTable();
   }catch(e){
-    const isOffline=!navigator.onLine||e.message.toLowerCase().includes('fetch');
+    const msg2=e.message.toLowerCase();
+    const isOffline=!navigator.onLine||msg2.includes('fetch')||msg2.includes('network')||msg2.includes('cors')||msg2.includes('failed');
     const cached=loadWeather();
     if(cached){
       weatherData=cached;
@@ -3731,6 +3731,24 @@ function mapZoneClick(zone,course){
 // ══════════════════════════════════════════════════════════════
 let wxData=[];let wxChart2=null;
 
+// Retry fetch with exponential backoff for transient network issues
+async function fetchWithRetry(url, opts={}, retries=3){
+  for(let i=0;i<retries;i++){
+    try{
+      const res=await fetch(url,{mode:'cors',cache:'no-cache',headers:{'Accept':'application/json'},...opts});
+      if(res.ok) return res;
+      if(res.status>=500&&i<retries-1){
+        await new Promise(r=>setTimeout(r,1000*(i+1)));
+        continue;
+      }
+      throw new Error('HTTP '+res.status);
+    }catch(e){
+      if(i===retries-1) throw e;
+      await new Promise(r=>setTimeout(r,1000*(i+1)));
+    }
+  }
+}
+
 async function fetchWeatherIntelligence(){
   const btn=document.getElementById('wxRefBtn');
   if(btn){btn.textContent='Loading…';btn.style.opacity='.6';}
@@ -3744,8 +3762,7 @@ async function fetchWeatherIntelligence(){
       `&hourly=relativehumidity_2m`+
       `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch`+
       `&timezone=America%2FLos_Angeles&start_date=${fmt(start)}&end_date=${fmt(end)}`;
-    const res=await fetch(url);
-    if(!res.ok)throw new Error('API '+res.status);
+    const res=await fetchWithRetry(url);
     const d=await res.json();
 
     // Compute daily avg RH from hourly
@@ -3776,7 +3793,8 @@ async function fetchWeatherIntelligence(){
     if(srcEl) srcEl.textContent = 'La Jolla CA · 32.90°N 117.25°W · Open-Meteo · '+wxData[0]?.date+' to '+wxData[wxData.length-1]?.date;
     showToast('✓ Weather updated — Torrey Pines conditions loaded');
   }catch(e){
-    const isOffline=!navigator.onLine||e.message.toLowerCase().includes('fetch');
+    const msg2=e.message.toLowerCase();
+    const isOffline=!navigator.onLine||msg2.includes('fetch')||msg2.includes('network')||msg2.includes('cors')||msg2.includes('failed');
     const msg=isOffline
       ?'📶 No internet — weather requires a connection. Connect to Wi-Fi or cell and click ↻ Refresh.'
       :'⚠ Weather fetch failed: '+e.message;
