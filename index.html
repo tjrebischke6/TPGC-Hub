@@ -5098,6 +5098,11 @@ function showSyncBar(msg,duration=0){
   if(duration)setTimeout(()=>{bar.style.opacity='0';},duration);
 }
 
+// ALL tables shared across all team members
+const SHARED_TABLES=new Set(['spray_history','gdd_apps','calendar','pests','app_tracker','turf_health','soil_tests','compliance']);
+// No private tables — everything is team-wide
+const PRIVATE_TABLES=new Set([]);
+
 async function cloudUpsert(tableName,record){
   if(!_sb||!_user)return;
   showSyncBar('⟳ Saving…');
@@ -5114,17 +5119,23 @@ async function cloudUpsert(tableName,record){
 
 async function cloudLoad(tableName){
   if(!_sb||!_user)return null;
-  const{data,error}=await _sb.from('tpgc_records')
-    .select('data').eq('table_name',tableName).eq('user_id',_user.id)
+  // Shared tables: load from ALL users — private tables: own records only
+  let query=_sb.from('tpgc_records').select('data')
+    .eq('table_name',tableName)
     .order('updated_at',{ascending:false});
+  if(!SHARED_TABLES.has(tableName)){
+    query=query.eq('user_id',_user.id);
+  }
+  const{data,error}=await query;
   if(error){console.warn('cloudLoad',error);return null;}
   return data.map(r=>r.data);
 }
 
 async function cloudUpsertInventory(invMap){
   if(!_sb||!_user)return;
+  // Shared inventory — stored under a single team-wide key
   await _sb.from('tpgc_records').upsert({
-    id:'inventory_state_'+_user.id,
+    id:'inventory_state_team',
     table_name:'inventory',
     user_id:_user.id,
     data:invMap,
@@ -5133,15 +5144,18 @@ async function cloudUpsertInventory(invMap){
 }
 
 async function syncAllFromCloud(){
-  showSyncBar('⟳ Loading your data…');
+  showSyncBar('⟳ Loading team data…');
   try{
+    // Inventory — shared team record (any user's write is visible to all)
     const{data:invRow}=await _sb.from('tpgc_records')
-      .select('data').eq('table_name','inventory').eq('user_id',_user.id)
-      .maybeSingle();
+      .select('data').eq('table_name','inventory')
+      .order('updated_at',{ascending:false})
+      .limit(1).maybeSingle();
     if(invRow?.data){
       const s=invRow.data;
       INV.forEach(i=>{if(s[i.id]){i.qty=s[i.id].q??i.qty;i.note=s[i.id].n??i.note;}});
     }
+    // All other tables — shared, load from all users
     const tables=['spray_history','app_tracker','gdd_apps','turf_health','soil_tests','compliance','pests','calendar'];
     const lsKeys=['tpgc_hist','tpgc_apptrack','tpgc_gddapp','tpgc_th','tpgc_st','tpgc_comp','tpgc_pests','tpgc_cal'];
     for(let i=0;i<tables.length;i++){
@@ -5149,16 +5163,25 @@ async function syncAllFromCloud(){
       if(recs!==null)localStorage.setItem(lsKeys[i],JSON.stringify(recs));
     }
     updSummary();renderInv();
-    showSyncBar('☁️ All data synced',2500);
+    showSyncBar('☁️ Team data synced',2500);
   }catch(e){showToast('⚠ Sync error: '+e.message);}
 }
 
 function startRealtimeSync(){
   if(!_sb||!_user)return;
-  _sb.channel('tpgc').on('postgres_changes',
-    {event:'*',schema:'public',table:'tpgc_records',filter:'user_id=eq.'+_user.id},
+
+  // Listen to ALL records changes (shared tables get updates from any user)
+  // Private table changes are filtered to own user_id only in the handler
+  _sb.channel('tpgc_team').on('postgres_changes',
+    {event:'*',schema:'public',table:'tpgc_records'},
     async(payload)=>{
-      const r=payload.new;if(!r)return;
+      const r=payload.new||payload.old;if(!r)return;
+      const isOwn=r.user_id===_user.id;
+      const isShared=SHARED_TABLES.has(r.table_name);
+
+      // Only process if it's our record OR a shared table
+      if(!isOwn&&!isShared)return;
+
       const tMap={spray_history:'tpgc_hist',app_tracker:'tpgc_apptrack',
         gdd_apps:'tpgc_gddapp',turf_health:'tpgc_th',soil_tests:'tpgc_st',
         compliance:'tpgc_comp',pests:'tpgc_pests',calendar:'tpgc_cal'};
@@ -5168,8 +5191,26 @@ function startRealtimeSync(){
         if(payload.eventType==='DELETE')arr=arr.filter(x=>x.id!==r.data?.id);
         else{const idx=arr.findIndex(x=>x.id===r.data?.id);
           if(idx>=0)arr[idx]=r.data;else arr.unshift(r.data);}
+        // Re-sort shared tables by date
+        if(isShared)arr.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
         localStorage.setItem(lsKey,JSON.stringify(arr));
-        showSyncBar('🔄 Updated from another device',2000);
+
+        // Refresh whichever tab is currently open
+        const refreshTab={
+          tpgc_hist:    ()=>{if(curTab==='spraysheet'){renderHistory();renderSSAlertBanner();}},
+          tpgc_gddapp:  ()=>{if(curTab==='gdd'){renderGDDAppList();renderGDDStats();renderGDDChart();renderGDDTable();renderPGRAlertBanner();}},
+          tpgc_cal:     ()=>{if(curTab==='calendar')renderCalendar();},
+          tpgc_pests:   ()=>{if(curTab==='pests')renderPestRecords();},
+          tpgc_th:      ()=>{if(curTab==='turfhealth')renderTHTable();},
+          tpgc_st:      ()=>{if(curTab==='soiltest')renderSTTable();},
+          tpgc_comp:    ()=>{if(curTab==='compliance')renderCompRecords();},
+          tpgc_apptrack:()=>{if(curTab==='budget')renderBudget();},
+        };
+        if(refreshTab[lsKey])refreshTab[lsKey]();
+        // Always refresh AI engine data snapshot
+        if(curTab==='aiengine')renderAIEngine();
+        const who=isOwn?'your device':'a teammate';
+        showSyncBar(`🔄 ${r.table_name.replace('_',' ')} updated by ${who}`,2500);
       }
       if(r.table_name==='inventory')syncAllFromCloud();
     }).subscribe();
