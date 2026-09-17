@@ -2806,7 +2806,7 @@ async function syncSharedHistory(){
     console.log('Table accessible. Sample rows:', testData);
     showToast('✓ Table found — '+testData.length+' total rows visible. Loading spray history…');
 
-    // Step 2: Load all spray_history records
+    // Step 2: Load ALL spray_history records from all team members
     const {data, error} = await _sb
       .from('tpgc_records')
       .select('data, user_id, updated_at')
@@ -5159,15 +5159,12 @@ async function cloudUpsert(tableName,record){
 
 async function cloudLoad(tableName){
   if(!_sb||!_user)return null;
-  // Shared tables: load from ALL users — private tables: own records only
-  let query=_sb.from('tpgc_records').select('data')
+  // Load from ALL users — everything is shared team-wide
+  const{data,error}=await _sb.from('tpgc_records')
+    .select('data')
     .eq('table_name',tableName)
     .order('updated_at',{ascending:false});
-  if(!SHARED_TABLES.has(tableName)){
-    query=query.eq('user_id',_user.id);
-  }
-  const{data,error}=await query;
-  if(error){console.warn('cloudLoad',error);return null;}
+  if(error){console.warn('cloudLoad error for',tableName,error);return null;}
   return data.map(r=>r.data);
 }
 
@@ -5187,10 +5184,13 @@ async function syncAllFromCloud(){
   showSyncBar('⟳ Loading team data…');
   try{
     // Inventory — shared team record (any user's write is visible to all)
+    // Load shared inventory — get most recently updated record from any user
     const{data:invRow}=await _sb.from('tpgc_records')
-      .select('data').eq('table_name','inventory')
+      .select('data')
+      .eq('table_name','inventory')
       .order('updated_at',{ascending:false})
-      .limit(1).maybeSingle();
+      .limit(1)
+      .maybeSingle();
     if(invRow?.data){
       const s=invRow.data;
       INV.forEach(i=>{if(s[i.id]){i.qty=s[i.id].q??i.qty;i.note=s[i.id].n??i.note;}});
@@ -5216,11 +5216,9 @@ function startRealtimeSync(){
     {event:'*',schema:'public',table:'tpgc_records'},
     async(payload)=>{
       const r=payload.new||payload.old;if(!r)return;
+      // Accept updates from ANY team member — everything is shared
       const isOwn=r.user_id===_user.id;
-      const isShared=SHARED_TABLES.has(r.table_name);
-
-      // Only process if it's our record OR a shared table
-      if(!isOwn&&!isShared)return;
+      const isShared=true; // all tables are shared
 
       const tMap={spray_history:'tpgc_hist',app_tracker:'tpgc_apptrack',
         gdd_apps:'tpgc_gddapp',turf_health:'tpgc_th',soil_tests:'tpgc_st',
@@ -5250,6 +5248,7 @@ function startRealtimeSync(){
         // Always refresh AI engine data snapshot
         if(curTab==='aiengine')renderAIEngine();
         const who=isOwn?'your device':'a teammate';
+        if(!isOwn&&r.table_name==='spray_history')showToast('📋 New spray sheet from teammate — tap Sync Team to load');
         showSyncBar(`🔄 ${r.table_name.replace('_',' ')} updated by ${who}`,2500);
       }
       if(r.table_name==='inventory')syncAllFromCloud();
