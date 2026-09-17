@@ -361,6 +361,7 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
     <div class="date-chip" id="dateBadge"></div>
     <button onclick="showSupabaseSetupSQL()" title="Get Supabase setup SQL" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.75);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:all .15s;" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">🗄 DB Setup SQL</button>
     <button onclick="showSetupModal()" title="Connect to Supabase — enter URL and key here" style="background:var(--flag);border:none;color:var(--ink);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:all .15s;">☁️ Cloud Login</button>
+    <button id="pushAllBtn" onclick="pushAllLocalToCloud()" title="Upload all local records to Supabase so the whole team can see them" style="background:#6366F1;border:none;color:white;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">☁️ Push All to Cloud</button>
   </div>
 </header>
 
@@ -634,6 +635,7 @@ header{background:var(--fairway);color:white;padding:0 1.5rem;display:flex;align
           <span class="ph-title">Spray History</span>
           <span class="ph-sub" id="histCnt">0 records</span>
           <button onclick="syncSharedHistory()" style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">🔄 Sync Team</button>
+          <button onclick="pushAllLocalToCloud()" title="Upload this device's records to cloud" style="background:rgba(99,102,241,.8);border:none;color:white;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;">☁️ Push to Cloud</button>
         </div>
         <div style="padding:8px 10px 4px;display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--border);">
           <select id="hist_filter_type" onchange="renderHistory()" style="border:1.5px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;font-family:'Inter',sans-serif;outline:none;flex:1;min-width:110px;">
@@ -2776,7 +2778,6 @@ function delRec(id){const h=loadHistory().filter(r=>r.id!==id);saveHistory(h);re
 
 // Load spray history from ALL team members (shared read)
 async function syncSharedHistory(){
-  // Check connection state
   if(!_sb){
     showToast('☁️ Not connected to Supabase — click ☁️ Cloud Login first');
     return;
@@ -2790,20 +2791,57 @@ async function syncSharedHistory(){
   if(btn){btn.textContent='⟳ Syncing…';btn.disabled=true;}
 
   try{
-    // Use cloudLoad which already handles shared vs private correctly
-    const recs=await cloudLoad('spray_history');
-    if(recs===null){
-      showToast('⚠ Could not load records — check Supabase connection');
+    // Step 1: Check if table exists and we can query it at all
+    const {data:testData, error:testError} = await _sb
+      .from('tpgc_records')
+      .select('id, table_name, user_id')
+      .limit(5);
+
+    if(testError){
+      showToast('⚠ Table error: '+testError.message+' (code: '+testError.code+')');
+      console.error('Table test error:', testError);
       return;
     }
+
+    console.log('Table accessible. Sample rows:', testData);
+    showToast('✓ Table found — '+testData.length+' total rows visible. Loading spray history…');
+
+    // Step 2: Load all spray_history records
+    const {data, error} = await _sb
+      .from('tpgc_records')
+      .select('data, user_id, updated_at')
+      .eq('table_name','spray_history')
+      .order('updated_at',{ascending:false});
+
+    if(error){
+      showToast('⚠ Query error: '+error.message);
+      console.error('Spray history query error:', error);
+      return;
+    }
+
+    console.log('Spray history rows:', data?.length, data);
+
+    if(!data||data.length===0){
+      // Check what table_names DO exist
+      const {data:tableNames} = await _sb
+        .from('tpgc_records')
+        .select('table_name')
+        .limit(50);
+      const names=[...new Set((tableNames||[]).map(r=>r.table_name))];
+      showToast('No spray_history found. Tables in DB: '+(names.join(', ')||'none'));
+      return;
+    }
+
     // Save and render
+    const recs = data.map(r=>r.data).filter(Boolean);
+    recs.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.id.localeCompare(a.id));
     localStorage.setItem('tpgc_hist',JSON.stringify(recs));
     renderHistory();
-    showToast(`✓ Synced — ${recs.length} spray sheet${recs.length!==1?'s':''} loaded from team`);
+    showToast('✓ Synced — '+recs.length+' spray sheet'+(recs.length!==1?'s':'')+' loaded');
+
   }catch(e){
-    // Show the full error so we can diagnose
-    const detail=e?.message||e?.error_description||JSON.stringify(e)||'Unknown error';
-    showToast('⚠ Sync failed: '+detail);
+    const detail=e?.message||JSON.stringify(e)||'Unknown error';
+    showToast('⚠ Sync error: '+detail);
     console.error('syncSharedHistory error:', e);
   }finally{
     if(btn){btn.textContent='🔄 Sync Team';btn.disabled=false;}
@@ -5256,6 +5294,68 @@ function patchSaveFunctions(){
     orig_saveGDDApps();
     if(_useCloud&&window.gddApps&&gddApps.length)cloudUpsert('gdd_apps',gddApps[0]);
   };
+}
+
+// Push ALL local records to Supabase cloud
+async function pushAllLocalToCloud(){
+  if(!_sb||!_user){showToast('☁️ Sign in first — click ☁️ Cloud Login');return;}
+
+  const btn=document.getElementById('pushAllBtn');
+  if(btn){btn.textContent='⟳ Uploading…';btn.disabled=true;}
+
+  const tables=[
+    {name:'spray_history',lsKey:'tpgc_hist'},
+    {name:'gdd_apps',     lsKey:'tpgc_gddapp'},
+    {name:'calendar',     lsKey:'tpgc_cal'},
+    {name:'pests',        lsKey:'tpgc_pests'},
+    {name:'app_tracker',  lsKey:'tpgc_apptrack'},
+    {name:'turf_health',  lsKey:'tpgc_th'},
+    {name:'soil_tests',   lsKey:'tpgc_st'},
+    {name:'compliance',   lsKey:'tpgc_comp'},
+  ];
+
+  let totalUploaded=0,errors=[];
+
+  for(const t of tables){
+    let recs=[];
+    try{recs=JSON.parse(localStorage.getItem(t.lsKey)||'[]');}catch(e){}
+    if(!recs.length)continue;
+    showSyncBar('⟳ Uploading '+t.name+' ('+recs.length+' records)…');
+    // Batch in groups of 20
+    const BATCH=20;
+    for(let i=0;i<recs.length;i+=BATCH){
+      const batch=recs.slice(i,i+BATCH);
+      const rows=batch.map(rec=>({
+        id:t.name+'_'+rec.id,
+        table_name:t.name,
+        user_id:_user.id,
+        data:rec,
+        updated_at:rec.savedAt||rec.submittedAt||rec.loggedAt||new Date().toISOString()
+      }));
+      const{error}=await _sb.from('tpgc_records').upsert(rows,{onConflict:'id'});
+      if(error){errors.push(t.name+': '+error.message);break;}
+      totalUploaded+=batch.length;
+    }
+  }
+
+  // Push inventory state
+  try{
+    const s={};INV.forEach(i=>{s[i.id]={q:i.qty,n:i.note};});
+    await _sb.from('tpgc_records').upsert({
+      id:'inventory_state_team',table_name:'inventory',
+      user_id:_user.id,data:s,updated_at:new Date().toISOString()
+    },{onConflict:'id'});
+    totalUploaded++;
+  }catch(e){errors.push('inventory: '+e.message);}
+
+  if(btn){btn.textContent='☁️ Push All to Cloud';btn.disabled=false;}
+
+  if(errors.length){
+    showToast('⚠ '+totalUploaded+' records uploaded with errors: '+errors.join('; '));
+  }else{
+    showToast('✓ '+totalUploaded+' records pushed to cloud — all devices will now sync');
+    showSyncBar('☁️ All local data uploaded',3000);
+  }
 }
 
 function showSupabaseSetupSQL(){
