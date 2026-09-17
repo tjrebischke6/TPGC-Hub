@@ -2776,35 +2776,37 @@ function delRec(id){const h=loadHistory().filter(r=>r.id!==id);saveHistory(h);re
 
 // Load spray history from ALL team members (shared read)
 async function syncSharedHistory(){
-  if(!_sb){showToast('☁️ Connect to Supabase first to sync team records');return;}
-  showToast('🔄 Loading team spray sheets…');
+  // Check connection state
+  if(!_sb){
+    showToast('☁️ Not connected to Supabase — click ☁️ Cloud Login first');
+    return;
+  }
+  if(!_user){
+    showToast('☁️ Not signed in — click ☁️ Cloud Login first');
+    return;
+  }
+
+  const btn=document.querySelector('[onclick="syncSharedHistory()"]');
+  if(btn){btn.textContent='⟳ Syncing…';btn.disabled=true;}
+
   try{
-    // Query all spray_history records across all users (RLS allows shared read)
-    const {data,error}=await _sb.from('tpgc_records')
-      .select('data,user_id,updated_at')
-      .eq('table_name','spray_history')
-      .order('updated_at',{ascending:false});
-    if(error) throw error;
-    if(!data?.length){showToast('No team records found yet');return;}
-    // Merge all users' records into local history
-    const existing=loadHistory();
-    const existingIds=new Set(existing.map(r=>r.id));
-    let added=0;
-    data.forEach(row=>{
-      const rec=row.data;
-      if(rec&&rec.id&&!existingIds.has(rec.id)){
-        existing.push(rec);
-        existingIds.add(rec.id);
-        added++;
-      }
-    });
-    // Sort by date and save
-    existing.sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
-    localStorage.setItem('tpgc_hist',JSON.stringify(existing));
+    // Use cloudLoad which already handles shared vs private correctly
+    const recs=await cloudLoad('spray_history');
+    if(recs===null){
+      showToast('⚠ Could not load records — check Supabase connection');
+      return;
+    }
+    // Save and render
+    localStorage.setItem('tpgc_hist',JSON.stringify(recs));
     renderHistory();
-    showToast(`✓ Synced — ${added} new team record${added!==1?'s':''} loaded (${data.length} total)`);
+    showToast(`✓ Synced — ${recs.length} spray sheet${recs.length!==1?'s':''} loaded from team`);
   }catch(e){
-    showToast('⚠ Sync failed: '+e.message);
+    // Show the full error so we can diagnose
+    const detail=e?.message||e?.error_description||JSON.stringify(e)||'Unknown error';
+    showToast('⚠ Sync failed: '+detail);
+    console.error('syncSharedHistory error:', e);
+  }finally{
+    if(btn){btn.textContent='🔄 Sync Team';btn.disabled=false;}
   }
 }
 
